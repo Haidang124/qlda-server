@@ -8,6 +8,8 @@ var projectSchema = Schema(
     name: String,
     admin: {type: Array, default:[]},
     userJoin: {type: Array, default: []},
+    avatar: {type: String, default: "https://tuoitredoisong.net/wp-content/uploads/2019/10/dich-Project-la-gi-trong-tieng-viet.jpg"},
+    description: {type: String, default: ""}
   },
   { timestamps: true }
 );

@@ -10,7 +10,7 @@ const Comment = require("../../model/commentModel");
 const { use } = require("../../routers/usersRouter");
 const { getNameAndAvatar } = require("./userController");
 
-module.exports.addProject = async (req, res) => {   //req: projectId
+module.exports.addProject = async (req, res) => {   //req: {name, avatar, description}
   let body = req.body;
   // let { userId } = req.body;
   let userId = await getCurrentId(req);
@@ -144,6 +144,24 @@ module.exports.getAllProject = async (req, res) => {
       res,
       400,
       'Không thể lấy dữ liệu'
+    )
+  }
+}
+module.exports.getProjectById = async (req, res) => {
+  try {
+    let {projectId} = req.body;
+    let project = await Project.findOne({_id: projectId});
+    return handleSuccessResponse(
+      res,
+      200,
+      project,
+      "Thành công"
+    )
+  } catch (error) {
+    return handleErrorResponse(
+      res,
+      400,
+      "Không tồn tại project!"
     )
   }
 }
