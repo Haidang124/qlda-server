@@ -22,11 +22,11 @@ module.exports = (server) => {
   nsGame.on("connection", function (socket) {
     socket.on("joinRoom", (data) => {
       socket.join(data.roomId);
-      console.log(getIDbyRoomeName("60788e3ffb44b7321c3d2798"));
+      console.log(getIDbyRoomeName("6073449c4deca20bfc267933"));
     });
     socket.on("createdPost", (data) => {
       io.of("project")
-        .to("60788e3ffb44b7321c3d2798")
+        .to("6073449c4deca20bfc267933")
         .emit("loadPost", { data: data });
     });
   });
