@@ -16,12 +16,17 @@ var projectSchema = Schema(
   },
   { timestamps: true }
 );
-projectSchema.statics.userJoin = async (userId, projectId) => {
-  var listUser = await (await projectSchema.findOne({ _id: projectId })).get(
+projectSchema.statics.userJoin = async function (userId, projectId) {
+  var listUser = await (await this.findOne({ _id: projectId })).get(
     "userJoin"
   );
-  listUser.push(userId);
-  var query = await projectSchema.updateOne(
+  if(listUser.indexOf(userId) == -1) {
+    listUser.push(userId);
+  }
+  else {
+    throw Error("Đã tồn tại User trong Project");
+  }
+  var query = await this.updateOne(
     { _id: projectId },
     {
       $set: {
@@ -34,8 +39,8 @@ projectSchema.statics.userJoin = async (userId, projectId) => {
   }
   throw Error("Không thể tham gia project!");
 };
-projectSchema.statics.userOut = async (userId, projectId) => {
-  var listUser = await (await projectSchema.findOne({ _id: projectId })).get(
+projectSchema.statics.userOut = async function (userId, projectId) {
+  var listUser = await (await this.findOne({ _id: projectId })).get(
     "userJoin"
   );
   if (listUser.indexOf(userId)) {
@@ -43,7 +48,7 @@ projectSchema.statics.userOut = async (userId, projectId) => {
   } else {
     throw Error("Không tồn tại project");
   }
-  var query = await projectSchema.updateOne(
+  var query = await this.updateOne(
     { _id: projectId },
     {
       $set: {

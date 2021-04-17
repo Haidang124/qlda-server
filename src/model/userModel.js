@@ -126,7 +126,11 @@ userSchema.statics.deleteProjectCreated = async function (userId, projectId) {
 }
 userSchema.statics.joinProject = async function (userId, projectId) {
   var listProject = await (await this.findOne({_id: userId})).get("projectJoin");
-  listProject.push(projectId);
+  if(listProject.indexOf(projectId) == -1) {
+    listProject.push(projectId);
+  } else {
+    throw Error("User đã tham gia Project");
+  }
   const query = await this.updateOne(
     { _id: userId },
     {

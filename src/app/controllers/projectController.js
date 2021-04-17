@@ -54,7 +54,7 @@ module.exports.joinProject = async (req, res) => {
     return handleErrorResponse(
       res,
       400,
-      "Tham gia project thất bại " + userId + "; " + projectId
+      error+""
     );
   }
 };
