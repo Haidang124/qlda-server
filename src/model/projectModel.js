@@ -19,7 +19,7 @@ var projectSchema = Schema(
 );
 projectSchema.statics.userJoin = async function (userId, projectId) {
   var listUser = await (await this.findOne({ _id: projectId })).get("userJoin");
-  if (listUser.indexOf(userId) == -1) {
+  if (listUser.indexOf(userId) === -1) {
     listUser.push(userId);
   } else {
     throw Error("User đã tham gia project");

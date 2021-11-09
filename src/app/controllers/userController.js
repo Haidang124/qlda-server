@@ -14,6 +14,18 @@ const createToken = (id) => {
     expiresIn: maxAge,
   });
 };
+exports.deleteCurrentUser = async (req, res) => {
+  let message;
+  let id = await getCurrentId(req);
+  User.remove({ _id: id }, function (err) {
+    if (!err) {
+      message = "xóa thành công!";
+    } else {
+      message = "Xảy ra lỗi";
+    }
+  });
+  handleSuccessResponse(res, 200, { status: message });
+};
 exports.getNameAndAvatar = async (id) => {
   let author = {};
   let user = await User.findById({ _id: id });
@@ -30,11 +42,16 @@ module.exports.loginUser = async (req, res) => {
   try {
     const user = await User.login(email, password);
     const token = createToken(user._id);
-    res.cookie("token", token, { httpOnly: false, maxAge: maxAge * 1000 });
+    res.cookie("token", token, {
+      httpOnly: false,
+      maxAge: maxAge * 1000,
+      // sameSite: "none",
+    });
+    // localStorage.setItem("token", "token123");
     return handleSuccessResponse(
       res,
       200,
-      { userId: user.id },
+      { userId: user.id, token: token },
       "Đăng nhập thành công !"
     );
   } catch (error) {
@@ -106,7 +123,7 @@ module.exports.changePassword = async (req, res) => {
       return handleErrorResponse(
         res,
         400,
-        error.message == "incorrect password"
+        error.message === "incorrect password"
           ? "ERROR! Incorrect current password."
           : error.message
       );
@@ -161,9 +178,9 @@ module.exports.getUserInfo = async (req, res) => {
 module.exports.getUserName = async function (req, res) {
   try {
     const userId = await getCurrentId(req);
-    const username = await (await User.findOne({ _id: userId })).get(
-      "username"
-    );
+    const username = await (
+      await User.findOne({ _id: userId })
+    ).get("username");
     return username;
   } catch (error) {
     throw Error(error.message);

@@ -1,7 +1,9 @@
 const usersRouter = require("./usersRouter");
 const postRouter = require("./postRouter");
+const momoRouter = require("./momoRouter");
 const projectRouter = require("./projectRouter");
 const taskRouter = require("./taskRouter");
+const mailer = require("./mailRouter");
 
 const commentRouter = require("./commentRouter");
 
@@ -12,11 +14,13 @@ const {
 } = require("../helper/responseHelper");
 
 module.exports = (app) => {
+  app.use("/api/momo", momoRouter);
   app.use("/api/user", usersRouter);
   app.use("/api/post", postRouter);
   app.use("/api/project", projectRouter);
   app.use("/api/comment", commentRouter);
   app.use("/api/task", taskRouter);
+  app.use("/api/mailer", mailer);
   app.get("/api/images", async (req, res) => {
     const { resources } = await cloudinary.search
       .expression("folder:dev_setups")

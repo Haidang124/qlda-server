@@ -11,7 +11,7 @@ module.exports = async (req, res, next) => {
   let project = await Project.findById(projectId);
   if (project) {
     // Kiểm tra xem user có quyền truy cập Project hay không
-    if (project.userId.toString() == userId || project.userJoin.indexOf(userId) != -1) {
+    if (project.userId.toString() === userId || project.userJoin.indexOf(userId) != -1) {
       next();
     }
     else {

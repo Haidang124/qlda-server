@@ -24,7 +24,7 @@ module.exports.addComment = async (req, res) => {
           // kiểm tra user có join project không
           if (
             project.userId != authorId &&
-            project.userJoin.indexOf(authorId) == -1
+            project.userJoin.indexOf(authorId) === -1
           ) {
             return handleErrorResponse(
               res,

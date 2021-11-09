@@ -13,7 +13,7 @@ module.exports = async (req, res, next) => {
     let projectId = await (await Post.findById(postId)).get("projectId");
     let project = await Project.findById(projectId);
     if (project) {
-        if (project.userId.toString() == userId || project.userJoin.indexOf(userId) != -1) {
+        if (project.userId.toString() === userId || project.userJoin.indexOf(userId) != -1) {
             next();
         }
         else {
@@ -37,7 +37,7 @@ module.exports = async (req, res, next) => {
     if(projectId != undefined) {
         let project = await Project.findById(projectId);
         if (project) {
-            if (project.userId.toString() == userId || project.userJoin.indexOf(userId) != -1) {
+            if (project.userId.toString() === userId || project.userJoin.indexOf(userId) != -1) {
                 next();
             }
             else {

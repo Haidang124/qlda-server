@@ -15,11 +15,14 @@ exports.handleSuccessResponse = async function (
 exports.getCurrentId = (req) => {
   return new Promise((resolve, reject) => {
     var id = "";
-    const token =
+    var token =
       req.body.token ||
       req.query.token ||
       req.headers["x-access-token"] ||
       req.cookies.token;
+    if (token.search("token=") !== -1) {
+      token = token.substring(token.search("token=") + 6);
+    }
     if (!token) {
       id = "";
     } else {

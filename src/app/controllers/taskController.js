@@ -10,14 +10,14 @@ const {
   const Task = require("../../model/taskModel");
   const { use } = require("../../routers/usersRouter");
   const { getNameAndAvatar } = require("./userController");
-  function equalDate (date1, date2) {           // date1 > date2: 1; date1 == date2: 0; date1 < date2: -1
+  function equalDate (date1, date2) {           // date1 > date2: 1; date1 === date2: 0; date1 < date2: -1
     let d1 = date1.getDate(), m1 = date1.getMonth(), y1 = date1.getFullYear();
     let d2 = date2.getDate(), m2 = date2.getMonth(), y2 = date2.getFullYear();
     if(y1 < y2) {
         return -1;
     } else if(y1 > y2) {
         return 1;
-    } else {    //y1 == y2
+    } else {    //y1 === y2
         if(m1 < m2) {
             return -1;
         } else if(m1 > m2) {
@@ -25,7 +25,7 @@ const {
         } else {
             if(d1 < d2) {
                 return -1;
-            } else if(d1 == d2) {
+            } else if(d1 === d2) {
                 return 0;
             } else {
                 return 1;
@@ -183,7 +183,7 @@ const {
                 });
                 break;
         }
-        if(equalDate(value.deadline,new Date(Date.now())) == -1 && value.typeTask != "Complete") {
+        if(equalDate(value.deadline,new Date(Date.now())) === -1 && value.typeTask != "Complete") {
             data.totalOverDeadline++;
             value.assignment.map((memberId, i) => {
                 data.dataUser[memberId]['taskOverDeadline'].push(value);
@@ -207,11 +207,11 @@ const {
               taskCreated: [], taskPlanned: [], taskInProgress: [], taskComplete: [], taskOverDeadline: [],
               totalPlenned: 0, totalInProgress: 0, totalComplete: 0, totalOverDeadline: 0, totalTask: listTask.length
           };
-          if(project.userId != memberId && project.userJoin.indexOf(memberId) == -1 ) {
+          if(project.userId != memberId && project.userJoin.indexOf(memberId) !== -1 ) {
               return handleErrorResponse(res, 400, "Không tồn tại member trong Project");
           }
           listTask.map((value, i) => {
-              if(value.authorId == memberId) {
+              if(value.authorId === memberId) {
                   data.taskCreated.push(value);
               }
                 switch(value.typeTask) {
@@ -234,7 +234,7 @@ const {
                         }
                         break;
                 }
-                if(equalDate(value.deadline,new Date(Date.now())) == -1 && value.typeTask != "Complete") {
+                if(equalDate(value.deadline,new Date(Date.now())) === -1 && value.typeTask != "Complete") {
                     data.totalOverDeadline++;
                     if(value.assignment.indexOf(memberId) != -1) {
                         data.taskOverDeadline.push(value);
@@ -263,12 +263,12 @@ const {
         for(var i=0; i<tasks.length; i++) {
             var project = await Project.findById(tasks[i].projectId);
             var stringDeadline = (new Date(tasks[i].deadline)).toDateString();
-            if(typeof(data.arrDate[stringDeadline]) == "undefined") {
+            if(typeof(data.arrDate[stringDeadline]) === "undefined") {
                 data.arrDate[stringDeadline] = [];
                 data.statusDate[stringDeadline] = {unfinished: 0, finished: 0};
             }
             data.arrDate[stringDeadline].push(tasks[i]._id);
-            tasks[i].typeTask=="Complete"?data.statusDate[stringDeadline].finished++:data.statusDate[stringDeadline].unfinished++;
+            tasks[i].typeTask==="Complete"?data.statusDate[stringDeadline].finished++:data.statusDate[stringDeadline].unfinished++;
             data.arrTaskId[tasks[i]._id] = stringDeadline;
             data.listTask[tasks[i]._id] = {
                 id: tasks[i]._id,

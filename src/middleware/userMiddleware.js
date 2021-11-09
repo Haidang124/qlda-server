@@ -6,7 +6,7 @@ const {
 module.exports = async (req, res, next) => {
   let id = await getCurrentId(req);
   if (id === "") {
-    return handleErrorResponse(res, 401, "Không thể xác thực người dùng !");
+    return handleErrorResponse(res, 401, "ErrorLogin");
   } else {
     req.id = id;
     next();

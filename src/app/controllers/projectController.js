@@ -39,33 +39,16 @@ module.exports.addProject = async (req, res) => {
     return handleErrorResponse(res, 401, "Không tìm thấy User!");
   }
 };
-module.exports.checkJoined = async (req, res) => {
-  //req: {projectId}
-  let userId = await getCurrentId(req);
-  let project = await Project.findById(projectId);
-  if (project) {
-    if (project.userId != userId && project.userJoin.indexOf(userId) == -1) {
-      return handleErrorResponse(res, 400, "ErrorSecurity");
-    }
-    return handleSuccessResponse(res, 200, {}, "SecurityOK");
-  } else {
-    return handleErrorResponse(res, 400, "ErrorProjectId");
-  }
-};
-module.exports.joinProject = async (req, res) => {
-  let userId = await getCurrentId(req);
-  let { projectId } = req.body;
+module.exports.joinProject = async function (userId, projectId) {
   try {
+    let project = await Project.findById(projectId);
+    if(userId === project.userId.toString()  || project.userJoin.indexOf(userId) != -1) {
+      return handleErrorResponse(res, 400, "MemberInProject");
+    }
     let query1 = await Project.userJoin(userId, projectId);
     let query2 = await User.joinProject(userId, projectId);
-    return handleSuccessResponse(
-      res,
-      200,
-      { userId: userId, projectId: projectId },
-      "Tham gia Project thành công"
-    );
   } catch (error) {
-    return handleErrorResponse(res, 400, error + "");
+    return handleErrorResponse(res, 400, "ErrorJoinProject");
   }
 };
 exports.getListPosts = async (projectId) => {  
@@ -111,10 +94,18 @@ module.exports.getPosts = async (req, res) => {
 };
 module.exports.deleteProject = async (req, res) => {
   let { projectId } = req.body;
+  let userId = await getCurrentId(req);
   if (projectId) {
-    let project = await Project.findOneAndRemove({ _id: projectId });
+    let project = await Project.findById(projectId);
     if (!project)
       return handleErrorResponse(res, 400, "Không tồn tại projectID");
+    if(userId !== project.userId.toString()) {
+      return handleErrorResponse(
+        res,
+        400,
+        "Bạn không có quyền xóa Project"
+      )
+    }
     let query = await User.deleteProjectCreated(project.userId, projectId);
     if (!query) {
       return handleErrorResponse(res, 400, "Error deleteProjectCreated");
@@ -132,6 +123,7 @@ module.exports.deleteProject = async (req, res) => {
       await Post.findOneAndRemove({_id: value._id});
     });
     await Task.remove({projectId: projectId});
+    await Project.remove({_id: projectId});
     return handleSuccessResponse(res, 200, project, "Xóa thành công");
   } else {
     return handleErrorResponse(res, 400, "Không tồn tại projectID");
@@ -236,7 +228,7 @@ module.exports.getUserJoin = async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         admin: project.admin.indexOf(listUser[i]) != -1 ? "Admin" : "",
-        userCreated: listUser[i] == project.userId ? "Created" : ""
+        userCreated: listUser[i] === project.userId ? "Created" : ""
       });
     }
     return handleSuccessResponse(
@@ -259,7 +251,7 @@ module.exports.setAdmin = async (req, res) => {
   if(project) {
     let listAdmin = [...project.admin];
     if(listAdmin.indexOf(userId) != -1) {
-      if(listAdmin.indexOf(memberId) == -1) {
+      if(listAdmin.indexOf(memberId) === -1) {
         listAdmin.push(memberId);
         let query = await Project.findOneAndUpdate(
           {_id: projectId},
@@ -279,7 +271,7 @@ module.exports.setAdmin = async (req, res) => {
           email: user.email,
           avatar: user.avatar,
           admin: project.admin.indexOf(listUser[i]) != -1 ? "Admin" : "",
-          userCreated: listUser[i] == project.userId ? "Created" : ""
+          userCreated: listUser[i] === project.userId ? "Created" : ""
         });
         }
         return handleSuccessResponse(
@@ -308,7 +300,7 @@ module.exports.dropAdmin = async (req, res) => {
   let userId = await getCurrentId(req);
   let project = await Project.findById(projectId);
   if(project) {
-    if(memberId == project.userId) return handleErrorResponse(res, 400, "Không thể xóa quyền Admin của người tạo Project");
+    if(memberId === project.userId.toString()) return handleErrorResponse(res, 400, "Không thể xóa quyền Admin của người tạo Project");
     let listAdmin = [...project.admin];
     if(listAdmin.indexOf(userId) != -1) {
       if(listAdmin.indexOf(memberId) != -1) {
@@ -331,7 +323,7 @@ module.exports.dropAdmin = async (req, res) => {
           email: user.email,
           avatar: user.avatar,
           admin: project.admin.indexOf(listUser[i]) != -1 ? "Admin" : "",
-          userCreated: listUser[i] == project.userId ? "Created" : ""
+          userCreated: listUser[i] === project.userId ? "Created" : ""
         });
         }
         return handleSuccessResponse(
@@ -361,9 +353,8 @@ module.exports.deleteMember = async (req, res) => {
     let userId = await getCurrentId(req);
     let project = await Project.findById(projectId);
     if(project) {
-      if(memberId == project.userId) return handleErrorResponse(res, 400, "Không thể xóa người tạo ra khỏi Project");
-      let listAdmin = [...project.admin];
-      if(listAdmin.indexOf(userId) != -1) {
+      if(memberId === project.userId.toString()) return handleErrorResponse(res, 400, "Không thể xóa người tạo ra khỏi Project");
+      if(project.admin.indexOf(userId) != -1 || userId === memberId) {
         let query1 = await Project.userOut(memberId, projectId);
         let query2 = await User.outProject(memberId, projectId);
         // Delete task
@@ -419,7 +410,7 @@ module.exports.deleteMember = async (req, res) => {
               email: user.email,
               avatar: user.avatar,
               admin: project.admin.indexOf(listUser[i]) != -1 ? "Admin" : "",
-              userCreated: listUser[i] == project.userId ? "Created" : ""
+              userCreated: listUser[i] === project.userId ? "Created" : ""
             });
           }
           return handleSuccessResponse(
