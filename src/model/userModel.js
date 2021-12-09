@@ -1,17 +1,9 @@
 const mongoose = require("mongoose");
 const { isEmail } = require("validator");
 const bcrypt = require("bcrypt");
-const { use } = require("../routers/usersRouter");
 // const mongoosePaginate = require('mongoose-will-paginate');
 // const SALT_WORK_FACTOR = 10;
-const {
-  handleErrorResponse,
-  handleSuccessResponse,
-  getCurrentId,
-} = require("../helper/responseHelper");
-
 var Schema = mongoose.Schema;
-
 var userSchema = Schema(
   {
     email: {
@@ -32,19 +24,31 @@ var userSchema = Schema(
       default:
         "https://api.hoclieu.vn/images/game/bbfb3597f173af631cb24f6ee0f8b8da.png",
     },
-    role: { type: String, default: "member" },
+    role: {
+      type: String,
+      enum: ["Admin", "Member", "MemberPlus", "MemberPro"],
+      default: "Member",
+    },
     language: { type: String, default: "vi" },
     birthday: { type: Date },
-    gameIdArray: {
-      type: Array,
+    tasks: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Task" }],
       default: [],
     },
-    projectCreated: {
-      type: Array,
+    blogs: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Blog" }],
       default: [],
     },
-    projectJoin: {
-      type: Array,
+    friendChat: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Chat" }],
+      default: [],
+    },
+    projects: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Project" }],
+      default: [],
+    },
+    notifications: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Notification" }],
       default: [],
     },
   },
@@ -52,6 +56,7 @@ var userSchema = Schema(
 );
 // fire a function before doc saved to db
 userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt();
   this.password = await bcrypt.hash(this.password, salt);
   next();
@@ -89,25 +94,31 @@ userSchema.statics.updateFields = async function (user_id, data) {
   throw Error("Update error!");
 };
 userSchema.statics.createProject = async function (userId, projectId) {
-  var listProject = await (await this.findOne({_id: userId})).get("projectCreated");
-  listProject.push(projectId);
+  let listProject = await (
+    await this.findOne({ _id: userId })
+  ).get("projectCreated");
+  if (listProject) {
+    listProject.push(projectId);
+  }
   const query = await this.updateOne(
     { _id: userId },
     {
       $set: {
         projectCreated: listProject,
-      }
+      },
     }
   );
-  if(query) {
+  if (query) {
     return query;
   }
   throw Error("Create error");
-}
+};
 userSchema.statics.deleteProjectCreated = async function (userId, projectId) {
-  var listProject = await (await this.findOne({_id: userId})).get("projectCreated");
-  if(listProject.indexOf(projectId) != -1) {
-    listProject.splice(listProject.indexOf(projectId),1);
+  var listProject = await (
+    await this.findOne({ _id: userId })
+  ).get("projectCreated");
+  if (listProject.indexOf(projectId) != -1) {
+    listProject.splice(listProject.indexOf(projectId), 1);
   } else {
     throw Error("Không tồn tại project");
   }
@@ -116,17 +127,19 @@ userSchema.statics.deleteProjectCreated = async function (userId, projectId) {
     {
       $set: {
         projectCreated: listProject,
-      }
+      },
     }
-  )
-  if(query) {
+  );
+  if (query) {
     return query;
   }
   throw Error("Create error");
-}
+};
 userSchema.statics.joinProject = async function (userId, projectId) {
-  var listProject = await (await this.findOne({_id: userId})).get("projectJoin");
-  if(listProject.indexOf(projectId) === -1) {
+  var listProject = await (
+    await this.findOne({ _id: userId })
+  ).get("projectJoin");
+  if (listProject.indexOf(projectId) === -1) {
     listProject.push(projectId);
   } else {
     throw Error("Project đã tồn tại User");
@@ -136,18 +149,20 @@ userSchema.statics.joinProject = async function (userId, projectId) {
     {
       $set: {
         projectJoin: listProject,
-      }
+      },
     }
   );
-  if(query) {
+  if (query) {
     return query;
   }
   throw Error("Create error");
-}
+};
 userSchema.statics.outProject = async function (userId, projectId) {
-  var listProject = await (await this.findOne({_id: userId})).get("projectJoin");
-  if(listProject.indexOf(projectId) != -1) {
-    listProject.splice(listProject.indexOf(projectId),1);
+  var listProject = await (
+    await this.findOne({ _id: userId })
+  ).get("projectJoin");
+  if (listProject.indexOf(projectId) != -1) {
+    listProject.splice(listProject.indexOf(projectId), 1);
   } else {
     throw Error("Không tồn tại project");
   }
@@ -156,14 +171,14 @@ userSchema.statics.outProject = async function (userId, projectId) {
     {
       $set: {
         projectJoin: listProject,
-      }
+      },
     }
   );
-  if(query) {
+  if (query) {
     return query;
   }
   throw Error("Create error");
-}
+};
 userSchema.statics.changePassword = async function (user_id, _newPassword) {
   const salt = await bcrypt.genSalt();
   const newPassword = await bcrypt.hash(_newPassword, salt);
@@ -205,6 +220,6 @@ userSchema.statics.updateGameIdArray = async function (userId, gameIdArray) {
   throw Error("ERROR! Don't update game");
 };
 
-const User = mongoose.model("user", userSchema);
+const User = mongoose.model("User", userSchema);
 
 module.exports = User;

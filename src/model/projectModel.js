@@ -1,19 +1,38 @@
 const mongoose = require("mongoose");
-
 var Schema = mongoose.Schema;
 
 var projectSchema = Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User" },
-    name: String,
+    userAdmin: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+    },
+    name: { type: String },
     avatar: {
       type: String,
       default:
         "https://tuoitredoisong.net/wp-content/uploads/2019/10/dich-Project-la-gi-trong-tieng-viet.jpg",
     },
-    chat: { type: Array, default: [] },
-    admin: { type: Array, default: [] },
-    userJoin: { type: Array, default: [] },
+    chats: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Chat" }],
+      default: [],
+    },
+    posts: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Post" }],
+      default: [],
+    },
+    sections: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Section" }],
+      default: [],
+    },
+    users: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+    },
+    labels: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Label" }],
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -38,9 +57,7 @@ projectSchema.statics.userJoin = async function (userId, projectId) {
   throw Error("Không thể tham gia project!");
 };
 projectSchema.statics.userOut = async function (userId, projectId) {
-  var listUser = await (await this.findOne({ _id: projectId })).get(
-    "userJoin"
-  );
+  var listUser = await (await this.findOne({ _id: projectId })).get("userJoin");
   if (listUser.indexOf(userId) != -1) {
     listUser.splice(listUser.indexOf(userId), 1);
   } else {
@@ -59,6 +76,6 @@ projectSchema.statics.userOut = async function (userId, projectId) {
   }
   throw Error("Không thể tham gia project!");
 };
-const Project = mongoose.model("project", projectSchema);
+const Project = mongoose.model("Project", projectSchema);
 
 module.exports = Project;

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const momoController = require("../app/controllers/momoController");
+const momoController = require("../controllers/momoController");
 const authUser = require("../middleware/userMiddleware");
 //router
 // router.use(authUser);

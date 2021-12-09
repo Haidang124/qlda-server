@@ -1,9 +1,13 @@
 const usersRouter = require("./usersRouter");
 const postRouter = require("./postRouter");
 const momoRouter = require("./momoRouter");
+const chatRouter = require("./chatRouter");
 const projectRouter = require("./projectRouter");
+const sectionRouter = require("./sectionRouter");
 const taskRouter = require("./taskRouter");
 const mailer = require("./mailRouter");
+const notificationRouter = require("../routers/notificationRouter");
+const labelRouter = require("../routers/labelRouter");
 
 const commentRouter = require("./commentRouter");
 
@@ -15,10 +19,14 @@ const {
 
 module.exports = (app) => {
   app.use("/api/momo", momoRouter);
+  app.use("/api/chat", chatRouter);
   app.use("/api/user", usersRouter);
   app.use("/api/post", postRouter);
   app.use("/api/project", projectRouter);
+  app.use("/api/section", sectionRouter);
   app.use("/api/comment", commentRouter);
+  app.use("/api/notification", notificationRouter);
+  app.use("/api/labels", labelRouter);
   app.use("/api/task", taskRouter);
   app.use("/api/mailer", mailer);
   app.get("/api/images", async (req, res) => {

@@ -1,4 +1,4 @@
-const { handleSuccessResponse } = require("../../helper/responseHelper");
+const { handleSuccessResponse } = require("../helper/responseHelper");
 module.exports.payment = async (req, res) => {
   var partnerCode = "MOMO";
   var accessKey = "F8BBA842ECF85";
@@ -6,10 +6,10 @@ module.exports.payment = async (req, res) => {
   var requestId = partnerCode + new Date().getTime();
   var orderId = requestId;
   var orderInfo = "pay with MoMo";
-  var redirectUrl = "https://momo.vn/return";
-  var ipnUrl = "https://callback.url/notify";
+  var redirectUrl = callBackPayment().toString();
+  var ipnUrl = callBackPayment().toString();
   // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
-  var amount = "50000";
+  var amount = req.query.amount ? req.query.amount : "50000";
   var requestType = "captureWallet";
   var extraData = ""; //pass empty value if your merchant does not have stores
   var rawSignature =
@@ -53,7 +53,7 @@ module.exports.payment = async (req, res) => {
     lang: "en",
   });
   //Create the HTTPS objects
-//   console.log(requestBody);
+  //   console.log(requestBody);
   const https = require("https");
   const options = {
     hostname: "test-payment.momo.vn",
@@ -66,16 +66,28 @@ module.exports.payment = async (req, res) => {
     },
   };
   const reqMomo = https.request(options, (resMomo) => {
+    let result = "";
     resMomo.setEncoding("utf8");
-    resMomo.on("data", (body) => {
-    //   console.log(JSON.parse(body).payUrl);
-      handleSuccessResponse(
-        res,
-        200,
-        { payUrl: JSON.parse(body).payUrl },
-        "Thành công!"
-      );
-    });
+    resMomo
+      .on("data", (body) => {
+        result += body;
+      })
+      .on("end", function () {
+        handleSuccessResponse(
+          res,
+          200,
+          { payUrl: JSON.parse(result).payUrl },
+          "Thành công!"
+        );
+      });
+    //   console.log(JSON.parse(JSON.stringify(body)));
+    //   handleSuccessResponse(
+    //     res,
+    //     200,
+    //     { payUrl: JSON.stringify(body) },
+    //     "Thành công!"
+    //   );
+    // });
     resMomo.on("end", () => {});
   });
 
@@ -84,4 +96,7 @@ module.exports.payment = async (req, res) => {
   });
   reqMomo.write(requestBody);
   reqMomo.end();
+};
+const callBackPayment = () => {
+  return "http://localhost:3001/status-payment";
 };

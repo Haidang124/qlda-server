@@ -1,7 +1,8 @@
 module.exports = (server) => {
   let io = require("socket.io").listen(server);
   const nsGame = io.of("project");
-  const listOnline = [];
+  const room = {};
+  const socketUser = {};
   const getSocketsbyRoomName = (roomName) => {
     if (typeof nsGame.adapter.rooms[roomName] !== "undefined") {
       let socketsId = nsGame.adapter.rooms[roomName].sockets;
@@ -20,6 +21,9 @@ module.exports = (server) => {
       : null;
   };
   nsGame.on("connection", function (socket) {
+    /**
+     * data:
+     */
     socket.on("joinRoom", (data) => {
       socket.join(data.roomId);
     });
@@ -27,49 +31,58 @@ module.exports = (server) => {
       io.of("project").to(data.roomId).emit("loadPost", { data: data });
     });
     socket.on("chatting", (data) => {
-      console.log("hihhihi");
       io.of("project").to(data.roomId).emit("loadChat", { data: data });
     });
-    socket.on("addTask", (data) => {
-      io.of("project").to(data.roomId).emit("reloadTask", { data: data });
-    });
+
+    /**
+     * data: roomId, userId
+     */
     socket.on("online", (data) => {
+      socketUser[socket.id] = { roomId: data.roomId };
+      if (room[data.roomId] === undefined) {
+        room[data.roomId] = {};
+        room[data.roomId].socketId = [];
+        room[data.roomId].userId = [];
+      }
+      room[data.roomId].socketId.push(socket.id);
+      room[data.roomId].userId.push(data.userId);
+      room[data.roomId][socket.id] = {
+        id: socket.id,
+        userId: data.userId,
+      };
       socket.join(data.roomId);
-      listOnline.push({ socketId: socket.id, userId: data.userId });
-      let listUserId = [];
-      listOnline.map((value) => {
-        listUserId.push(value.userId);
-      });
       io.of("project")
-        .to("online")
-        .emit("reloadUserOnline", { data: listUserId });
+        .to(data.roomId)
+        .emit("reloadUserOnline", room[data.roomId].userId);
     });
-    socket.on("loadUserOnline", () => {
-      let listUserId = [];
-      listOnline.map((value) => {
-        listUserId.push(value.userId);
-      });
-      io.of("project")
-        .to("online")
-        .emit("reloadUserOnline", { data: listUserId });
+    socket.on("loadOnline", () => {
+      if (!socketUser[socket.id]) {
+        return;
+      }
+      let roomId = socketUser[socket.id].roomId;
+      io.of("project").to(roomId).emit("reloadUserOnline", room[roomId].userId);
     });
     socket.on("loadMember", (data) => {
-      io.of("project").to("online").emit("reloadMember", { data: data });
+      let roomId = socketUser[socket.id].roomId;
+      io.of("project").to(roomId).emit("reloadMember", data);
     });
     socket.on("disconnect", () => {
-      for (var i = 0; i < listOnline.length; i++) {
-        if (listOnline[i].socketId === socket.id) {
-          listOnline.splice(i, 1);
-          break;
-        }
+      if (!socketUser[socket.id]) {
+        return;
       }
-      let listUserId = [];
-      listOnline.map((value) => {
-        listUserId.push(value.userId);
-      });
+      let roomId = socketUser[socket.id].roomId;
+      let userId = room[roomId][socket.id].userId;
+      delete socketUser[socket.id];
+      delete room[roomId][socket.id];
+      if (room[roomId].userId.indexOf(userId) !== -1) {
+        room[roomId].userId.splice(room[roomId].userId.indexOf(userId), 1);
+      }
+      if (room[roomId].socketId.indexOf(socket.id) !== -1) {
+        room[roomId].userId.splice(room[roomId].socketId.indexOf(socket.id), 1);
+      }
       io.of("project")
         .to("online")
-        .emit("reloadUserOnline", { data: listUserId });
+        .emit("reloadUserOnline", room[roomId].userId);
     });
   });
   return io;

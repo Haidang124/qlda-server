@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 var Schema = mongoose.Schema;
 
 var confirmMail = Schema(
@@ -10,6 +9,6 @@ var confirmMail = Schema(
   },
   { timestamps: true }
 );
-const Comment = mongoose.model("confirmMail", confirmMail);
+const Comment = mongoose.model("ConfirmMail", confirmMail);
 
 module.exports = Comment;

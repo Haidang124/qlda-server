@@ -20,7 +20,7 @@ exports.getCurrentId = (req) => {
       req.query.token ||
       req.headers["x-access-token"] ||
       req.cookies.token;
-    if (token.search("token=") !== -1) {
+    if (token && token.search("token=") !== -1) {
       token = token.substring(token.search("token=") + 6);
     }
     if (!token) {
@@ -47,4 +47,10 @@ exports.handleErrorResponse = async function (
     code: 2,
     error: message,
   });
+};
+
+exports.test = async function (res) {
+  return res
+    .status(200)
+    .send({ data: { data2: [{ message: "1" }, { message: "2" }] } });
 };
