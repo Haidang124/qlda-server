@@ -3,6 +3,7 @@ const {
   handleSuccessResponse,
   getCurrentId,
 } = require("../helper/responseHelper");
+const axios = require("axios");
 const Project = require("../model/projectModel");
 const Post = require("../model/postModel");
 const User = require("../model/userModel");
@@ -136,6 +137,19 @@ module.exports.getLabels = async (req, res) => {
  * @param {*} res
  * @returns
  */
+exports.addProjectGitHub = (name) => {
+  try {
+    axios
+      .post("http://localhost:3003/api/createProject", {
+        name: name,
+      })
+      .then(async (response) => {})
+      .catch((error) => {});
+  } catch (err) {
+    console.log(err);
+  }
+};
+
 module.exports.addProject = async (req, res) => {
   // var io = req.app.get("io");
   let body = req.body;
@@ -146,7 +160,7 @@ module.exports.addProject = async (req, res) => {
     let user = await User.findById(userId);
     if (user) {
       var project = new Project(body);
-      project.save(async function (err, obj) {
+      project.save(async (err, obj) => {
         if (err) {
           return handleErrorResponse(res, 400, null, "Add project thất bại!");
         }
@@ -154,6 +168,7 @@ module.exports.addProject = async (req, res) => {
         await addSectionDefault(userId, project._id);
         await addDefaultLabel(userId, project._id);
         await user.save();
+        this.addProjectGitHub(body.name);
         return handleSuccessResponse(
           res,
           200,

@@ -6,7 +6,7 @@ const oAuth2Client = new OAuth2(
 );
 oAuth2Client.setCredentials({
   refresh_token:
-    "1//04-Ch_wyfRt0KCgYIARAAGAQSNwF-L9IrjS-IYu1ko3KB-_77vT-qr3bLiNr7v2iwyqQhv2pn8_E5CkyxCVrchUx5RNIvtINqn_8",
+    "1//04YACS_O52ZCLCgYIARAAGAQSNwF-L9IrNNp4ONCp9u168ZVK9-NpJQm27utUy7JVl2Y2Q3otvGPgL0Yuxt4xh-prMXh8gN-UaFk",
 });
 const calendar = google.calendar({ version: "v3", auth: oAuth2Client });
 
@@ -58,7 +58,7 @@ exports.createEventCalendar = (
     (err, res) => {
       if (err) return console.error("Free Busy Query Error: ", err);
       const eventArr = res.data.calendars.primary.busy;
-      if (eventArr.length === 0)
+      // if (eventArr.length === 0)
         return calendar.events.insert(
           { calendarId: "primary", resource: event },
           (err) => {
@@ -67,7 +67,7 @@ exports.createEventCalendar = (
             return console.log("Calendar event successfully created.");
           }
         );
-      return console.log(`Sorry I'm busy...`);
+      // return console.log(`Sorry I'm busy...`);
     }
   );
 };

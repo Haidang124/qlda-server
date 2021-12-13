@@ -132,28 +132,75 @@ module.exports.getTaskGithub = async (req, res) => {
       .get("http://localhost:3003/api/github")
       .then(async (response) => {
         let listTask = response.data.tasks.task;
-        listTask.forEach(async (element, i) => {
+        // console.log(listTask);
+        if (!Array.isArray(listTask)) {
+          let element = listTask;
           let dueDate = {
             from: new Date(element.createDate),
             to: element.closeDate ? new Date(element.closeDate) : new Date(),
           };
+          const eventStartTime = new Date(dueDate.from);
+          const eventEndTime = new Date(dueDate.to);
+          eventEndTime.setMinutes(eventEndTime.getMinutes() + 45);
+          createEventCalendar(
+            eventStartTime,
+            eventEndTime,
+            element.title,
+            "Description task"
+          );
           await this.handleAddTask(
             userId,
             projectId,
             sectionId,
             dueDate,
             element.title
-          ).then(() => {
-            if (i === listTask.length - 1) {
+          )
+            .then(() => {
               this.getAllTasks(projectId, (err, data) => {
                 if (err) {
                   return handleErrorResponse(res, 400, err);
                 }
                 return handleSuccessResponse(res, 200, data, "Thành công");
               });
-            }
+            })
+            .catch(() => {});
+        } else {
+          listTask.forEach(async (element, i) => {
+            let dueDate = {
+              from: new Date(element.createDate),
+              to: element.closeDate ? new Date(element.closeDate) : new Date(),
+            };
+            const eventStartTime = new Date(dueDate.from);
+            const eventEndTime = new Date(dueDate.to);
+            eventEndTime.setMinutes(eventEndTime.getMinutes() + 45);
+            createEventCalendar(
+              eventStartTime,
+              eventEndTime,
+              element.title,
+              "Description task"
+            );
+            await this.handleAddTask(
+              userId,
+              projectId,
+              sectionId,
+              dueDate,
+              element.title
+            )
+              .then(() => {
+                if (i === listTask.length - 1) {
+                  this.getAllTasks(projectId, (err, data) => {
+                    if (err) {
+                      return handleErrorResponse(res, 400, err);
+                    }
+                    return handleSuccessResponse(res, 200, data, "Thành công");
+                  });
+                }
+              })
+              .catch(() => {
+                console.log(2);
+              });
           });
-        });
+        }
       })
       .catch((error) => {
         // console.log(error);
@@ -168,6 +215,20 @@ exports.addTaskGitHub = (title) => {
     axios
       .post("http://localhost:3003/api/createIssues", {
         title: title,
+      })
+      .then(async (response) => {})
+      .catch((error) => {});
+  } catch (err) {
+    console.log(err);
+  }
+};
+exports.editTaskGitHub = (title, state, issue_number) => {
+  try {
+    axios
+      .post("http://localhost:3003/api/updateIssues", {
+        title: title,
+        state: state,
+        issue_number: issue_number,
       })
       .then(async (response) => {})
       .catch((error) => {});
@@ -449,6 +510,11 @@ module.exports.updateTask = async (req, res) => {
           "Một lỗi không mong muốn đã xảy ra"
         );
       }
+      this.editTaskGitHub(
+        req.body.name,
+        req.body.state ? req.body.name : "close",
+        1
+      );
       this.getAllTasks(req.body.projectId, (err, data) => {
         if (err) {
           return handleErrorResponse(res, 400, err);
