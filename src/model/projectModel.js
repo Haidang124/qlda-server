@@ -13,6 +13,16 @@ var projectSchema = Schema(
       default:
         "https://tuoitredoisong.net/wp-content/uploads/2019/10/dich-Project-la-gi-trong-tieng-viet.jpg",
     },
+    training: {
+      type: [
+        {
+          type: { type: String },
+          link: { type: String },
+          blogId: { type: Schema.Types.ObjectId, ref: "Blog" },
+        },
+      ],
+      default: [],
+    },
     chats: {
       type: [{ type: Schema.Types.ObjectId, ref: "Chat" }],
       default: [],

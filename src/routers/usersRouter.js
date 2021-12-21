@@ -15,4 +15,5 @@ router.post("/update", userController.updateAccount);
 router.put("/changePassword", userController.changePassword);
 router.get("/getUserInfo", userController.getUserInfo);
 router.get("/getUserName", userController.getUserName);
+router.get("/getUserCurrent", userController.getUserCurrent);
 module.exports = router;

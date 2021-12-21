@@ -9,7 +9,8 @@ const User = require("../model/userModel");
 const Task = require("../model/taskModel");
 const Section = require("../model/sectionModel");
 const projectController = require("../controllers/projectController");
-const { createEventCalendar } = require("../services/google/calendar");
+const notificationController = require("../controllers/notificationController");
+// const { createEventCalendar } = require("../services/google/calendar");
 
 /**
  *
@@ -163,18 +164,18 @@ module.exports.getTaskGithub = async (req, res) => {
     return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
   }
 };
-exports.addTaskGitHub = (title) => {
-  try {
-    axios
-      .post("http://localhost:3003/api/createIssues", {
-        title: title,
-      })
-      .then(async (response) => {})
-      .catch((error) => {});
-  } catch (err) {
-    console.log(err);
-  }
-};
+// exports.addTaskGitHub = (title) => {
+//   try {
+//     axios
+//       .post("http://localhost:3003/api/createIssues", {
+//         title: title,
+//       })
+//       .then(async (response) => {})
+//       .catch((error) => {});
+//   } catch (err) {
+//     console.log(err);
+//   }
+// };
 module.exports.addTask = async (req, res) => {
   //req: {sectionId, projectId, dependencies: [], assignment: [],
   //      name, description, files , dueDate: {from: Date, to: Date}, isDone, labels: Array<string>}
@@ -189,7 +190,7 @@ module.exports.addTask = async (req, res) => {
     if (!section) {
       return handleErrorResponse(res, 400, "Không tồn tại section");
     }
-    let project = await Project.findById(body.projectId);
+    // let project = await Project.findById(body.projectId);
     let task = new Task({
       authorId: userId,
       sectionId: body.sectionId,
@@ -210,18 +211,18 @@ module.exports.addTask = async (req, res) => {
           "Một lỗi không mong muốn đã xảy ra"
         );
       }
-      const eventStartTime = new Date(body.dueDate.from);
-      // eventStartTime.setDate(eventStartTime.getDay() + 3);
-      const eventEndTime = new Date(body.dueDate.to);
-      // eventEndTime.setDate(eventEndTime.getDay() + 4);
-      eventEndTime.setMinutes(eventEndTime.getMinutes() + 45);
-      createEventCalendar(
-        eventStartTime,
-        eventEndTime,
-        body.name,
-        body.description
-      );
-      this.addTaskGitHub(body.name);
+      // const eventStartTime = new Date(body.dueDate.from);
+      // // eventStartTime.setDate(eventStartTime.getDay() + 3);
+      // const eventEndTime = new Date(body.dueDate.to);
+      // // eventEndTime.setDate(eventEndTime.getDay() + 4);
+      // eventEndTime.setMinutes(eventEndTime.getMinutes() + 45);
+      // createEventCalendar(
+      //   eventStartTime,
+      //   eventEndTime,
+      //   body.name,
+      //   body.description
+      // );
+      // this.addTaskGitHub(body.name);
       section.tasks.push(task._id);
       await section.save(async (err, obj) => {
         if (err) {
@@ -231,7 +232,7 @@ module.exports.addTask = async (req, res) => {
             "Một lỗi không mong muốn đã xảy ra"
           );
         }
-        this.getAllTasks(req.body.projectId, (err, data) => {
+        this.getAllTasks(body.projectId, (err, data) => {
           if (err) {
             return handleErrorResponse(res, 400, err);
           }
@@ -418,6 +419,7 @@ module.exports.updateTask = async (req, res) => {
   let { taskId } = req.body;
   try {
     let user = await User.findById(userId);
+    let project = await Project.findById(req.body.projectId);
     if (!user) {
       return handleErrorResponse(res, 400, "Không tồn tại user");
     }
@@ -433,7 +435,57 @@ module.exports.updateTask = async (req, res) => {
     }
     if (req.body.dependencies !== undefined)
       task.dependenciesTask = req.body.dependencies;
-    if (req.body.assignment) task.assignment = req.body.assignment;
+    if (req.body.assignment) {
+      await task.assignment.forEach(async (_userId, i) => {
+        if (!(req.body.assignment || []).includes(_userId)) {
+          // delete task user
+          let _user = await User.findById(_userId);
+          _user.tasks.splice(_user.tasks.indexOf(taskId), 1);
+          _user.save();
+          if (_user._id.toString() !== user._id.toString()) {
+            notificationController.addNotificationOneUser(
+              {
+                userId: _user._id,
+                type: "del-assignment",
+                projectId: req.body.projectId,
+                authorId: userId,
+                taskId: task._id,
+              },
+              (err) => {
+                if (err) {
+                  console.log(err);
+                }
+              }
+            );
+          }
+        }
+      });
+      await req.body.assignment.forEach(async (_userId, i) => {
+        if (!task.assignment.includes(_userId)) {
+          // add task user
+          let _user = await User.findById(_userId);
+          _user.tasks.push(taskId);
+          _user.save();
+          if (_user._id.toString() !== user._id.toString()) {
+            notificationController.addNotificationOneUser(
+              {
+                userId: _user._id,
+                type: "add-assignment",
+                projectId: req.body.projectId,
+                authorId: userId,
+                taskId: task._id,
+              },
+              (err) => {
+                if (err) {
+                  console.log(err);
+                }
+              }
+            );
+          }
+        }
+      });
+      task.assignment = req.body.assignment;
+    }
     if (req.body.name) task.name = req.body.name;
     if (req.body.files) task.files = [...req.body.files];
     if (req.body.dueDate) task.dueDate = req.body.dueDate;
@@ -469,64 +521,6 @@ module.exports.updateTask = async (req, res) => {
   }
 };
 /**
- * add assignment to task
- * @param {*} req {projectId, taskId, assignmentId}
- * @param {*} res
- */
-module.exports.addAssignment = async (req, res) => {
-  let { projectId, taskId, assignmentId } = req.body;
-  let userId = await getCurrentId(req);
-  try {
-    let user = await User.findById(userId);
-    if (
-      !user ||
-      (!this.checkAuthor(res, userId, taskId) &&
-        !projectController.checkAdmin(res, userId, projectId))
-    ) {
-      return handleErrorResponse(res, 400, "Không có quyền truy cập");
-    }
-    let task = await Task.findById(taskId);
-    if (!task) {
-      return handleErrorResponse(res, 400, "Không tồn tại task");
-    }
-    let assignment = await User.findById(assignmentId);
-    if (!assignment) {
-      return handleErrorResponse(res, 400, "Không tồn tại user");
-    }
-    let project = await Project.findById(projectId);
-    if (project.users.indexOf(assignmentId) === -1) {
-      return handleErrorResponse(res, 400, "User không nằm trong project");
-    }
-    if (task.assignment.indexOf(assignmentId) !== -1) {
-      return handleErrorResponse(res, 400, "User đã được thêm vào task");
-    }
-    task.assignment.push(assignmentId);
-    task.save((err, obj) => {});
-    assignment.tasks.push(taskId);
-    assignment.save((err, obj) => {
-      if (err) {
-        return handleErrorResponse(
-          res,
-          400,
-          "Một lỗi không mong muốn đã xảy ra"
-        );
-      }
-      this.getTaskById(taskId, (err, _task) => {
-        this.getAllTasks(projectId, (err, data) => {
-          return handleSuccessResponse(
-            res,
-            200,
-            { allTasks: data, updateTask: _task },
-            "Thành công"
-          );
-        });
-      });
-    });
-  } catch (err) {
-    return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
-  }
-};
-/**
  * remove assignment to task
  * @param {*} req {projectId, taskId, assignmentId}
  * @param {*} res {allTasks: Array<Task>, updateTask: Task}
@@ -560,6 +554,22 @@ module.exports.deleteAssignment = async (req, res) => {
     }
     task.assignment.splice(task.assignment.indexOf(assignmentId), 1);
     task.save();
+    if (assignmentId !== userId) {
+      notificationController.addNotificationOneUser(
+        {
+          userId: assignmentId,
+          type: "del-assignment",
+          projectId: projectId,
+          authorId: userId,
+          taskId: task._id,
+        },
+        (err) => {
+          if (err) {
+            console.log(err);
+          }
+        }
+      );
+    }
     assignment.tasks.splice(assignment.tasks.indexOf(taskId), 1);
     assignment.save((err, obj) => {
       if (err) {
@@ -618,65 +628,23 @@ module.exports.addAssignment = async (req, res) => {
     }
     task.assignment.push(assignmentId);
     task.save((err, obj) => {});
+    if (assignmentId !== userId) {
+      notificationController.addNotificationOneUser(
+        {
+          userId: assignmentId,
+          projectId: projectId,
+          type: "add-assignment",
+          taskId: task._id,
+          authorId: userId,
+        },
+        (err) => {
+          if (err) {
+            console.log(err);
+          }
+        }
+      );
+    }
     assignment.tasks.push(taskId);
-    assignment.save((err, obj) => {
-      if (err) {
-        return handleErrorResponse(
-          res,
-          400,
-          "Một lỗi không mong muốn đã xảy ra"
-        );
-      }
-      this.getTaskById(taskId, (err, _task) => {
-        this.getAllTasks(projectId, (err, data) => {
-          return handleSuccessResponse(
-            res,
-            200,
-            { allTasks: data, updateTask: _task },
-            "Thành công"
-          );
-        });
-      });
-    });
-  } catch (err) {
-    return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
-  }
-};
-/**
- * remove assignment to task
- * @param {*} req {projectId, taskId, assignmentId}
- * @param {*} res {allTasks: Array<Task>, updateTask: Task}
- */
-module.exports.deleteAssignment = async (req, res) => {
-  let { projectId, taskId, assignmentId } = req.body;
-  let userId = await getCurrentId(req);
-  try {
-    let user = await User.findById(userId);
-    if (
-      !user ||
-      (!this.checkAuthor(res, userId, taskId) &&
-        !projectController.checkAdmin(res, userId, projectId))
-    ) {
-      return handleErrorResponse(res, 400, "Không có quyền truy cập");
-    }
-    let task = await Task.findById(taskId);
-    if (!task) {
-      return handleErrorResponse(res, 400, "Không tồn tại task");
-    }
-    let assignment = await User.findById(assignmentId);
-    if (!assignment) {
-      return handleErrorResponse(res, 400, "Không tồn tại user");
-    }
-    let project = await Project.findById(projectId);
-    if (project.users.indexOf(assignmentId) === -1) {
-      return handleErrorResponse(res, 400, "User không nằm trong project");
-    }
-    if (task.assignment.indexOf(assignmentId) === -1) {
-      return handleErrorResponse(res, 400, "User chưa được thêm vào task");
-    }
-    task.assignment.splice(task.assignment.indexOf(assignmentId), 1);
-    task.save();
-    assignment.tasks.splice(assignment.tasks.indexOf(taskId), 1);
     assignment.save((err, obj) => {
       if (err) {
         return handleErrorResponse(
@@ -703,14 +671,18 @@ module.exports.deleteAssignment = async (req, res) => {
 
 /**
  *
- * @param {*} params
+ * @param {*} params taskId
  * @param {*} deleteInSection
  * @param {*} callback
  */
 exports.deleteTaskById = async (params, deleteInSection, callback) => {
-  // params: {taskId}
   let task = await Task.findByIdAndRemove(params.taskId);
   if (task) {
+    task.assignment.forEach(async (userId) => {
+      let user = await User.findById(userId);
+      user.tasks.splice(user.tasks.indexOf(params.taskId), 1);
+      user.save();
+    });
     if (deleteInSection) {
       let section = await Section.findById(task.sectionId);
       section.tasks.splice(section.tasks.indexOf(task._id), 1);

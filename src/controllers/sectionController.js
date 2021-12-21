@@ -128,7 +128,13 @@ exports.updateName = async (params, callback) => {
   if (section) {
     section.name = params.name;
     section.save(async function (err, obj) {
-      callback(err, obj, section);
+      if (err) {
+        callback("Một lỗi không mong muốn đã xảy ra", null);
+        return;
+      }
+      taskController.getAllTasks(params.projectId, (err, allTasks) => {
+        callback(err, allTasks);
+      });
     });
   } else throw Error("Không tồn tại section");
 };
@@ -149,10 +155,11 @@ module.exports.updateNameSection = async (req, res) => {
     if (project.userAdmin.indexOf(userId) !== -1) {
       this.updateName(
         {
+          projectId: req.body.projectId,
           sectionId: req.body.sectionId,
           name: req.body.name,
         },
-        async (err, obj, section) => {
+        async (err, allTasks) => {
           if (err) {
             return handleErrorResponse(
               res,
@@ -160,7 +167,7 @@ module.exports.updateNameSection = async (req, res) => {
               "Một lỗi không mong muốn đã xảy ra"
             );
           }
-          return handleSuccessResponse(res, 200, section, "Thành công");
+          return handleSuccessResponse(res, 200, allTasks, "Thành công");
         }
       );
     } else {

@@ -5,4 +5,6 @@ const authUser = require("../middleware/userMiddleware");
 //router
 // router.use(authUser);
 router.get("/payment", momoController.payment);
+router.post("/checkPayment", momoController.checkPayment);
+
 module.exports = router;

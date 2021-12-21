@@ -1,4 +1,5 @@
-const { handleSuccessResponse } = require("../helper/responseHelper");
+const { handleSuccessResponse, getCurrentId } = require("../helper/responseHelper");
+const User = require("../model/userModel");
 module.exports.payment = async (req, res) => {
   var partnerCode = "MOMO";
   var accessKey = "F8BBA842ECF85";
@@ -88,7 +89,7 @@ module.exports.payment = async (req, res) => {
     //     "Thành công!"
     //   );
     // });
-    resMomo.on("end", () => {});
+    resMomo.on("end", () => { });
   });
 
   req.on("error", (e) => {
@@ -96,6 +97,32 @@ module.exports.payment = async (req, res) => {
   });
   reqMomo.write(requestBody);
   reqMomo.end();
+};
+module.exports.checkPayment = async (req, res) => {
+  const { amount, message, resultCode } = req.body
+  if (message === 'Successful.' && resultCode === '0') {
+    let userId = await getCurrentId(req);
+    let user = await User.findById(userId);
+    if (user) {
+
+      switch (amount) {
+        case '50000':
+          user.role = 'MemberPlus'
+          break;
+        case '100000':
+          user.role = 'MemberPro'
+          break;
+        default:
+          break;
+      }
+      user.save(function (err, obj) {
+        if (err) {
+          return handleErrorResponse(res, 400, null, "Thất bại");
+        }
+        return handleSuccessResponse(res, 200, user, "Thành công");
+      });
+    }
+  }
 };
 const callBackPayment = () => {
   return "http://localhost:3001/status-payment";

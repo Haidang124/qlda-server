@@ -10,6 +10,9 @@ const Comment = require("../model/commentModel");
 const sectionController = require("./sectionController");
 const labelController = require("./labelController");
 const { RoleProject } = require("../helper/role");
+const { ObjectId } = require("mongoose");
+const Notification = require("../model/notificationModel");
+const notificationController = require("../controllers/notificationController");
 /**
  * get Role user
  * @param {*} res
@@ -167,31 +170,112 @@ module.exports.addProject = async (req, res) => {
   }
 };
 /**
+ *
+ * @param {*} req {projectId: string; emailInvite: string; }
+ * @param {*} res
+ * @returns
+ */
+module.exports.inviteJoinProject = async (req, res) => {
+  let userId = await getCurrentId(req);
+  let { projectId, emailInvite } = req.body;
+  try {
+    let user = await User.findById(userId);
+    let project = await Project.findById(projectId);
+    if (project.users.includes(userId)) {
+      let userInvite = await User.findOne({ email: emailInvite });
+      if (userInvite) {
+        if (project.users.includes(userInvite._id)) {
+          return handleErrorResponse(
+            res,
+            400,
+            "Thành viên đã tham gia project"
+          );
+        }
+        let notiCheck = await Notification.findOne({
+          userId: userInvite._id,
+          type: "project-invite",
+          projectId: projectId,
+        });
+        if (notiCheck) {
+          return handleErrorResponse(
+            res,
+            400,
+            "Đã gửi lời mời cho thành viên, hãy chờ thêm."
+          );
+        } else {
+          notificationController.addNotificationOneUser(
+            {
+              userId: userInvite._id,
+              projectId: projectId,
+              type: "project-invite",
+              authorId: userId,
+            },
+            (err) => {
+              if (err) {
+                return handleErrorResponse(res, 400, err);
+              } else {
+                return handleSuccessResponse(res, 200, "Đã gửi lời mời");
+              }
+            }
+          );
+        }
+      } else {
+        return handleErrorResponse(res, 400, "Không tồn tại người dùng");
+      }
+    } else {
+      return handleErrorResponse(
+        res,
+        400,
+        "Bạn không có quyền thêm thành viên"
+      );
+    }
+  } catch (err) {
+    console.log(err);
+    return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
+  }
+};
+
+/**
  * add user to project
- * @param {* projectId, userId} req
+ * @param {*} req notificationId: string, status: boolean
  * @param {*} res
  * @returns
  */
 module.exports.joinProject = async (req, res) => {
-  // req: {projectId, userId (người được mời)}
-  let { userId, projectId } = req.body;
+  let { notificationId, status, projectId } = req.body;
+  let userId = await getCurrentId(req);
   try {
-    let project = await Project.findById(projectId);
-    let user = await User.findById(userId);
-    if (project.users.indexOf(userId) !== -1) {
-      // thuộc mảng users
-      return handleErrorResponse(res, 400, "User đã thuộc project từ trước!");
-    } else {
-      project.users.push(user._id);
-      await project.save();
-      user.projects.push(project._id);
-      await user.save();
-      return handleSuccessResponse(
-        res,
-        200,
-        { project: project },
-        "Join project thành công!"
+    let notification = await Notification.findById(notificationId);
+    if (notification.type !== "project-invite") {
+      return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
+    }
+    if (notification.userId.toString() === userId) {
+      if (status) {
+        let project = await Project.findById(notification.projectId);
+        let userInvite = await User.findById(userId);
+        project.users.push(userId);
+        userInvite.projects.push(project._id);
+        project.save();
+        userInvite.save();
+      }
+      notificationController.addNotificationOneUser(
+        {
+          userId: notification.authorId,
+          projectId: notification.projectId,
+          type: status ? "project-agree" : "project-refuse",
+          authorId: userId,
+        },
+        () => {
+          notification.type = status
+            ? "project-agree-invited"
+            : "project-refuse-invited";
+          notification.save((err, obj) => {
+            return notificationController.getNotifications(req, res);
+          });
+        }
       );
+    } else {
+      return handleErrorResponse(res, 400, "Không có quyền truy cập");
     }
   } catch (error) {
     return handleErrorResponse(res, 400, "Join project thất bại!");
@@ -367,12 +451,19 @@ module.exports.setAdmin = async (req, res) => {
   let { projectId, memberId } = req.body;
   let userId = await getCurrentId(req);
   let project = await Project.findById(projectId);
-  if (project) {
-    if (project.userAdmin.indexOf(userId) !== -1) {
-      if (project.users.indexOf(memberId) !== -1) {
-        if (project.userAdmin.indexOf(memberId) === -1) {
+  let user = await User.findById(userId);
+  let member = await User.findById(memberId);
+  if (project && user && member) {
+    if (project.userAdmin.includes(userId)) {
+      // admin
+      if (project.users.includes(memberId)) {
+        // member thuộc project
+        if (project.userAdmin.includes(memberId)) {
+          // member đã là admin
+          return handleErrorResponse(res, 400, "Thành viên đã là Admin");
+        } else {
           project.userAdmin.push(memberId);
-          project.save(async (err, obj) => {
+          project.save((err, obj) => {
             if (err) {
               return handleErrorResponse(
                 res,
@@ -380,38 +471,23 @@ module.exports.setAdmin = async (req, res) => {
                 "Một lỗi không mong muốn đã xảy ra"
               );
             }
-            let projectSave = await Project.findById(projectId).populate([
-              {
-                path: "users",
-                select: "username avatar role email",
-              },
-              {
-                path: "userAdmin",
-                select: "_id",
-              },
-            ]);
-            return handleSuccessResponse(
-              res,
-              200,
-              { users: projectSave.users, userAdmin: project.userAdmin },
-              "Thành công"
-            );
+            return this.getUserIdAndUserAdminId(req, res);
           });
-        } else {
-          return handleErrorResponse(res, 400, "Người dùng đã admin từ trước!");
         }
       } else {
+        // member không thuộc project
         return handleErrorResponse(
           res,
           400,
-          "Member chưa là thành viên project!"
+          "Một lỗi không mong muốn đã xảy ra"
         );
       }
     } else {
-      return handleErrorResponse(res, 400, "Bạn không có quyền này!");
+      // Không có quyền admin
+      return handleErrorResponse(res, 400, "Không có quyền truy cập");
     }
   } else {
-    return handleErrorResponse(res, 400, "Không tồn tại Project");
+    return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
   }
 };
 
@@ -423,53 +499,73 @@ module.exports.setAdmin = async (req, res) => {
  */
 module.exports.dropAdmin = async (req, res) => {
   let { projectId, memberId } = req.body;
-  let userId = await getCurrentId(req);
-  let project = await Project.findById(projectId);
-  if (project) {
-    if (project.userAdmin[0] !== userId) {
-      if (project.userAdmin.indexOf(memberId) !== -1) {
-        if (memberId === userId.toString()) {
+  try {
+    let userId = await getCurrentId(req);
+    let project = await Project.findById(projectId);
+    let user = await User.findById(userId);
+    let member = await User.findById(memberId);
+    if (project && user && member) {
+      if (project.userAdmin.includes(userId)) {
+        if (memberId === project.userAdmin[0].toString()) {
+          // xóa quyền Admin người tạo
           return handleErrorResponse(
             res,
             400,
-            "Không thể xóa quyền Admin người tạo project"
+            "Không thể xóa người tạo project"
           );
-        }
-        project.userAdmin.splice(project.userAdmin.indexOf(memberId), 1);
-        project.save(async (err, obj) => {
-          if (err) {
+        } else {
+          if (project.userAdmin.includes(memberId)) {
+            // member thuộc admin
+            project.userAdmin.splice(project.userAdmin.indexOf(memberId), 1);
+            project.save((err, obj) => {
+              if (err) {
+                return handleErrorResponse(
+                  res,
+                  400,
+                  "Một lỗi không mong muốn đã xảy ra"
+                );
+              }
+              return this.getUserIdAndUserAdminId(req, res);
+            });
+          } else {
             return handleErrorResponse(
               res,
               400,
-              "Một lỗi không mong muốn đã xảy ra"
+              "Thành viên này không có quyền Admin"
             );
           }
-          let projectSave = await Project.findById(projectId).populate([
-            {
-              path: "users",
-              select: "username avatar role email",
-            },
-            {
-              path: "userAdmin",
-              select: "_id",
-            },
-          ]);
-          return handleSuccessResponse(
-            res,
-            200,
-            { users: projectSave.users, userAdmin: project.userAdmin },
-            "Thành công"
-          );
-        });
+        }
       } else {
         return handleErrorResponse(res, 400, "Không có quyền truy cập");
       }
     } else {
-      return handleErrorResponse(res, 400, "Bạn không có quyền này!");
+      return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
     }
-  } else {
-    return handleErrorResponse(res, 400, "Không tồn tại Project");
+  } catch (error) {
+    return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
   }
+};
+
+/**
+ *
+ * @param {*} req projectId
+ * @param {*} res
+ * @returns
+ */
+exports.getUserIdAndUserAdminId = async (req, res) => {
+  let { projectId } = req.body;
+  let projectSave = await Project.findById(projectId).populate([
+    {
+      path: "users",
+      select: "username avatar role email",
+    },
+  ]);
+  return handleSuccessResponse(
+    res,
+    200,
+    { users: projectSave.users, userAdmin: projectSave.userAdmin },
+    "Thành công"
+  );
 };
 /**
  * delete member
@@ -482,17 +578,26 @@ module.exports.deleteMember = async (req, res) => {
   try {
     let userId = await getCurrentId(req);
     let project = await Project.findById(projectId);
-    if (project) {
-      if (memberId === project.userAdmin[0])
+    let user = await User.findById(userId);
+    let member = await User.findById(memberId);
+    if (project && user && member) {
+      if (memberId === project.userAdmin[0].toString())
         return handleErrorResponse(
           res,
           400,
           "Không thể xóa người tạo ra khỏi Project"
         );
       if (project.userAdmin.indexOf(userId) !== -1) {
+        // admin
         if (project.users.indexOf(memberId) !== -1) {
+          // member thuộc project
           project.users.splice(project.users.indexOf(memberId), 1);
-          project.save(async (err, obj) => {
+          if (project.userAdmin.includes(memberId)) {
+            project.userAdmin.splice(project.userAdmin.indexOf(memberId), 1);
+          }
+          member.projects.splice(member.projects.indexOf(projectId), 1);
+          member.save();
+          project.save((err, obj) => {
             if (err) {
               return handleErrorResponse(
                 res,
@@ -500,22 +605,7 @@ module.exports.deleteMember = async (req, res) => {
                 "Một lỗi không mong muốn đã xảy ra"
               );
             }
-            let projectSave = await Project.findById(projectId).populate([
-              {
-                path: "users",
-                select: "username avatar role email",
-              },
-              {
-                path: "userAdmin",
-                select: "_id",
-              },
-            ]);
-            return handleSuccessResponse(
-              res,
-              200,
-              { users: projectSave.users, userAdmin: project.userAdmin },
-              "Thành công"
-            );
+            return this.getUserIdAndUserAdminId(req, res);
           });
         } else {
           return handleErrorResponse(
@@ -524,11 +614,12 @@ module.exports.deleteMember = async (req, res) => {
             "Nguời dùng không thuộc project"
           );
         }
+      } else {
+        return handleErrorResponse(res, 400, "Không có quyền truy cập");
       }
-      return handleErrorResponse(res, 400, "Không có quyền admin");
     }
   } catch (error) {
-    return handleErrorResponse(res, 400, error + "");
+    return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
   }
 };
 /**
@@ -582,5 +673,82 @@ module.exports.analysis = async (req, res) => {
   } catch (err) {
     console.log(err);
     return handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
+  }
+};
+/**
+ * GET all task of user
+ * @param {*} req projectId
+ * @param {*} res
+ */
+module.exports.getAllTasks = async function (req, res) {
+  let { projectId } = req.query;
+  let userId = await getCurrentId(req);
+  try {
+    let selectUser = "avatar role tasks email _id username";
+    let user = await User.findById(userId);
+    if (!user) {
+      return handleErrorResponse(res, 400, "Không tồn tại tài khoản");
+    }
+    let project = await Project.findById(projectId);
+    if (project) {
+      if (!project.users.includes(userId)) {
+        return handleErrorResponse(res, 400, "Không có quyền truy cập");
+      }
+      project = await Project.findById(projectId).populate({
+        path: "users",
+        populate: [
+          {
+            path: "tasks",
+            // match: {
+            //   sectionId: {
+            //     _id: projectId,
+            //   },
+            // },
+            populate: [
+              {
+                path: "assignment",
+                select: selectUser,
+              },
+              {
+                path: "dependenciesTask",
+              },
+              {
+                path: "sectionId",
+                populate: [
+                  {
+                    path: "authorId",
+                    select: selectUser,
+                  },
+                ],
+                select: "name authorId projectId",
+              },
+              {
+                path: "labels",
+              },
+              {
+                path: "authorId",
+                select: selectUser,
+              },
+            ],
+          },
+        ],
+        select: selectUser,
+      });
+      await project.users.forEach(async (user) => {
+        let tasks = [];
+        await user.tasks.forEach((task) => {
+          if (task.sectionId.projectId.toString() === projectId) {
+            tasks.push(task);
+          }
+        });
+        user.tasks = [...tasks];
+      });
+      return handleSuccessResponse(res, 200, project.users, "Thành công");
+    } else {
+      return handleSuccessResponse(res, 400, "Không tồn tại project");
+    }
+  } catch (err) {
+    console.log(err);
+    return handleSuccessResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
   }
 };

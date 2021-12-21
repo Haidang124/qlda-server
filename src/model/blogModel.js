@@ -4,8 +4,11 @@ var Schema = mongoose.Schema;
 var blogSchema = Schema(
   {
     authorId: { type: Schema.Types.ObjectId, ref: "User" },
-    security: { type: String, default: "Public" },
+    title: { type: String },
+    describe: { type: String },
     content: { type: String },
+    security: { type: String, default: "Public" },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
     categoryId: { type: Schema.Types.ObjectId, ref: "Category" },
     comments: {
       type: [{ type: Schema.Types.ObjectId, ref: "Comment" }],

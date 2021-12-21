@@ -4,6 +4,7 @@ const momoRouter = require("./momoRouter");
 const chatRouter = require("./chatRouter");
 const projectRouter = require("./projectRouter");
 const sectionRouter = require("./sectionRouter");
+const blogRouter = require("./blogRouter");
 const taskRouter = require("./taskRouter");
 const mailer = require("./mailRouter");
 const notificationRouter = require("../routers/notificationRouter");
@@ -28,6 +29,7 @@ module.exports = (app) => {
   app.use("/api/notification", notificationRouter);
   app.use("/api/labels", labelRouter);
   app.use("/api/task", taskRouter);
+  app.use("/api/blog", blogRouter);
   app.use("/api/mailer", mailer);
   app.get("/api/images", async (req, res) => {
     const { resources } = await cloudinary.search

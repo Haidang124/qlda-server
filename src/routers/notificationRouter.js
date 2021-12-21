@@ -8,6 +8,6 @@ router.use(userMiddleware);
 router.get("/getNotifications", notificatioController.getNotifications);
 router.post('/deleteNotification', notificatioController.deleteNotification)
 router.use(projectMiddleware);
-router.post("/sendNotifications", notificatioController.sendNotifications);
+// router.post("/sendNotifications", notificatioController.sendNotifications);
 
 module.exports = router;

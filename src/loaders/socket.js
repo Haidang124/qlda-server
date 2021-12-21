@@ -1,8 +1,29 @@
 module.exports = (server) => {
-  let io = require("socket.io").listen(server);
+  const io = require("socket.io").listen(server);
   const nsGame = io.of("project");
+  /**
+   * room: {  <project._id>: {
+   *                userId: [<user._id>],
+   *                socketId: [<socket.id>],
+   *                <socket.id>: {
+   *                    id: <socket.id>,
+   *                    userId: <user._id>
+   *                }
+   *           }
+   *        }
+   */
   const room = {};
+  /**
+   * socketUser: { <user._id>: { roomId: <project._id> } }
+   */
   const socketUser = {};
+  /**
+   * roomAll: {allUsers: Array<user._id>, allSocket: Array<socket.id>}
+   */
+  const roomAll = {
+    allUsers: [],
+    allSocket: [],
+  };
   const getSocketsbyRoomName = (roomName) => {
     if (typeof nsGame.adapter.rooms[roomName] !== "undefined") {
       let socketsId = nsGame.adapter.rooms[roomName].sockets;
@@ -22,14 +43,22 @@ module.exports = (server) => {
   };
   nsGame.on("connection", function (socket) {
     /**
-     * data:
+     * data: {roomId: project._id}
      */
     socket.on("joinRoom", (data) => {
       socket.join(data.roomId);
     });
+
+    /**
+     * data: {roomId: project._id}
+     */
     socket.on("createdPost", (data) => {
       io.of("project").to(data.roomId).emit("loadPost", { data: data });
     });
+
+    /**
+     * data: {roomId: project._id}
+     */
     socket.on("chatting", (data) => {
       io.of("project").to(data.roomId).emit("loadChat", { data: data });
     });
@@ -51,10 +80,33 @@ module.exports = (server) => {
         userId: data.userId,
       };
       socket.join(data.roomId);
+      socket.join("roomAll");
+      roomAll.allUsers.push(data.userId);
+      roomAll.allSocket.push(socket.id);
       io.of("project")
         .to(data.roomId)
         .emit("reloadUserOnline", room[data.roomId].userId);
     });
+
+    /**
+     * data: userId: string; projectId: project._id, authorId: string, type: string
+     */
+    socket.on("newNotification", (data) => {
+      if (
+        data.type === "project-invite" ||
+        data.type === "project-agree-invited" ||
+        data.type === "project-refuse-invited"
+      ) {
+        io.of("project").to("roomAll").emit("newNotification-client", data);
+        io.of("project").to("roomAll").emit("notification-reload", data);
+      } else {
+        io.of("project")
+          .to(data.projectId)
+          .emit("newNotification-client", data);
+        io.of("project").to(data.projectId).emit("notification-reload", data);
+      }
+    });
+
     socket.on("loadOnline", () => {
       if (!socketUser[socket.id]) {
         return;
@@ -62,10 +114,12 @@ module.exports = (server) => {
       let roomId = socketUser[socket.id].roomId;
       io.of("project").to(roomId).emit("reloadUserOnline", room[roomId].userId);
     });
-    socket.on("loadMember", (data) => {
-      let roomId = socketUser[socket.id].roomId;
-      io.of("project").to(roomId).emit("reloadMember", data);
-    });
+
+    // socket.on("loadMember", (data) => {
+    //   let roomId = socketUser[socket.id].roomId;
+    //   io.of("project").to(roomId).emit("reloadMember", data);
+    // });
+
     socket.on("disconnect", () => {
       if (!socketUser[socket.id]) {
         return;
@@ -80,9 +134,11 @@ module.exports = (server) => {
       if (room[roomId].socketId.indexOf(socket.id) !== -1) {
         room[roomId].userId.splice(room[roomId].socketId.indexOf(socket.id), 1);
       }
-      io.of("project")
-        .to("online")
-        .emit("reloadUserOnline", room[roomId].userId);
+      if (roomAll.allUsers.includes(userId)) {
+        roomAll.allUsers.splice(roomAll.allUsers.indexOf(userId), 1);
+        roomAll.allSocket.splice(roomAll.allSocket.indexOf(socket.id), 1);
+      }
+      io.of("project").to(roomId).emit("reloadUserOnline", room[roomId].userId);
     });
   });
   return io;

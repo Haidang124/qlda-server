@@ -194,3 +194,17 @@ module.exports.getUserName = async function (req, res) {
     throw Error(error.message);
   }
 };
+module.exports.getUserCurrent = async (req, res) => {
+  let userId = await getCurrentId(req);
+  try {
+    let user = await User.findById(userId)
+      .populate()
+      .select("_id username role avatar");
+    if (!user) {
+      handleErrorResponse(res, 400, "Không thể xác thực người dùng");
+    }
+    handleSuccessResponse(res, 200, user, "Thành công");
+  } catch (error) {
+    handleErrorResponse(res, 400, "Một lỗi không mong muốn đã xảy ra");
+  }
+};
