@@ -55,7 +55,14 @@ module.exports.addChat = async (req, res) => {
         ],
       })
       .then((user) => {
-        return handleSuccessResponse(res, 200, user.friendChat, "Thành công");
+        let result = user.friendChat.filter(
+          (chat) =>
+            (chat.friendID._id.toString() === projectId &&
+              chat.userId._id.toString() === userId) ||
+            (chat.friendID._id.toString() === userId &&
+              chat.userId._id.toString() === projectId)
+        );
+        return handleSuccessResponse(res, 200, result, "Thành công");
       });
   }
 };
@@ -134,7 +141,11 @@ module.exports.getChat = async (req, res) => {
         })
         .then((user) => {
           let result = user.friendChat.filter(
-            (chat) => chat.friendID._id.toString() === projectId
+            (chat) =>
+              (chat.friendID._id.toString() === projectId &&
+                chat.userId._id.toString() === userId) ||
+              (chat.friendID._id.toString() === userId &&
+                chat.userId._id.toString() === projectId)
           );
           return handleSuccessResponse(res, 200, result, "Thành công");
         });
