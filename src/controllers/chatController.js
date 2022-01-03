@@ -133,7 +133,10 @@ module.exports.getChat = async (req, res) => {
           ],
         })
         .then((user) => {
-          return handleSuccessResponse(res, 200, user.friendChat, "Thành công");
+          let result = user.friendChat.filter(
+            (chat) => chat.friendID._id.toString() === projectId
+          );
+          return handleSuccessResponse(res, 200, result, "Thành công");
         });
     }
   } catch (error) {
