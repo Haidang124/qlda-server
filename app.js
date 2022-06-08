@@ -13,25 +13,25 @@ const port = process.env.PORT || 3002;
 
 // kết nối databse
 // local
-// require("./src/loaders/database")();
+require("./src/loaders/database")();
 // cloud
 // const URL = process.env.DB_URL;
-mongoose
-  .connect(
-    "mongodb+srv://admin:admin@cluster0.sa970.mongodb.net/?retryWrites=true&w=majority",
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
-  )
-  .then(() => {
-    console.log("connected mongodb");
-    console.log("Server is running at -> http://localhost:" + port);
-  })
-  .catch((err) => {
-    console.log(URL);
-    console.log(err);
-  });
+// mongoose
+//   .connect(
+//     "mongodb+srv://admin:admin@cluster0.sa970.mongodb.net/?retryWrites=true&w=majority",
+//     {
+//       useNewUrlParser: true,
+//       useUnifiedTopology: true,
+//     }
+//   )
+//   .then(() => {
+//     console.log("connected mongodb");
+//     console.log("Server is running at -> http://localhost:" + port);
+//   })
+//   .catch((err) => {
+//     console.log(URL);
+//     console.log(err);
+//   });
 // tạo các thư mục cần thiết
 // require('./loaders/mkdirs')();
 
