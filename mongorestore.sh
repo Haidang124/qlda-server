@@ -1,0 +1,1 @@
+mongorestore -d qlda-server /db-dump
