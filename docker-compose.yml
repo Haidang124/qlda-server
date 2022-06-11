@@ -1,12 +1,42 @@
-version: '3.4'
+version: '3.7'
 
 services:
-  webserver:
-    image: webserver
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    environment:
-      NODE_ENV: production
+  client:
+    image: haidang124/qlda-client:node-16.15
     ports:
-      - 3002:3002
+      - '3001:80'
+    networks:
+      - db-network
+    restart: unless-stopped
+    
+  server:
+    image: haidang124/qlda-server:vps-node-16.15
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - PORT=${PORT}
+    ports:
+      - "${PORT}:${PORT}"
+    restart: unless-stopped
+    networks:
+      - db-network
+    depends_on:
+        - db
+
+  db:
+    image: mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./mongorestore.sh:/docker-entrypoint-initdb.d/mongorestore.sh
+      - ./db-dump:/db-dump
+      - .docker/data/db:/data/db
+    restart: unless-stopped
+    networks:
+      - db-network
+
+networks:
+  db-network:
+    driver: bridge
